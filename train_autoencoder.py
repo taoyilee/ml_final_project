@@ -16,8 +16,8 @@ if __name__ == "__main__":
     ae_model = config["general"].get("ae_model")
     color_mode = config["general"].get("color_mode")
     noise_ratio = config["general"].getfloat("noise_ratio")
-    train_set = SVNHDataset.from_csv(config["general"].get("training_set"), "dataset_split/images/training")
-    dev_set = SVNHDataset.from_csv(config["general"].get("dev_set"), "dataset_split/images/training")
+    train_set = SVNHDataset.from_npy(config["general"].get("training_set"))
+    dev_set = SVNHDataset.from_npy(config["general"].get("dev_set"))
     if color_mode == "grayscale":
         train_set.set_gray_scale()
         dev_set.set_gray_scale()
@@ -84,6 +84,7 @@ if __name__ == "__main__":
                     embeddings_metadata=None, embeddings_data=None, update_freq='epoch'))
     autoencoder.summary()
     autoencoder.fit_generator(gen, validation_data=dev_gen, epochs=config["general"].getint("epoch"), shuffle=True,
-                              callbacks=callbacks, verbose=config["training"].getint("verbosity"))
+                              callbacks=callbacks, verbose=config["training"].getint("verbosity"), workers=4,
+                              use_multiprocessing=True)
     autoencoder.save_weights(os.path.join(exp_dir, f"autoencoder_final.h5"))
     plot_ae(config, tag=tag)

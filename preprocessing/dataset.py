@@ -24,6 +24,8 @@ class SVHNAEFileSequence(Sequence):
             batch_x = np.array([np.array(PIL.Image.open(x)) for x in batch_x])
         else:
             batch_x = np.array([np.array(PIL.Image.open(x).convert("L")) for x in batch_x])
+            batch_x = batch_x[:, :, :, np.newaxis]
+
         batch_x = batch_x.astype("float32")
         batch_x /= 255.0
         if self.flatten:
@@ -67,14 +69,13 @@ class SVNHDataset:
 
     def generator(self, batch_size=16, ae=True, flatten=True, noise=0.5):
         if self.image_files is None:
-            x_set = self.images / 255.
+            x_set = self.images
             x_set_orig = x_set.copy()
             y_set = self.labels
             if flatten:
                 x_set = x_set.reshape(len(self), np.prod(x_set.shape[1:]))
             if ae:
                 return SVHNSequence(x_set, x_set_orig, batch_size=batch_size, noise=noise)
-
             else:
                 return SVHNSequence(x_set, y_set, batch_size=batch_size, noise=noise)
         else:
@@ -97,7 +98,7 @@ class SVNHDataset:
             if self.color_mode == "rgb":
                 return np.array(PIL.Image.open(self.image_files[0])).shape
             else:
-                return np.array(PIL.Image.open(self.image_files[0]).convert("L")).shape
+                return np.array(PIL.Image.open(self.image_files[0]).convert("L"))[:, :, np.newaxis].shape
 
     @property
     def images(self):
@@ -119,19 +120,27 @@ class SVNHDataset:
         _, dataset_name = os.path.split(mat_file)
         dataset_name, _ = os.path.splitext(dataset_name)
         dataset = cls(dataset_name)
-        dataset._images = np.moveaxis(dict_representation["X"], -1, 0)
+        dataset._images = np.moveaxis(dict_representation["X"], -1, 0) / 255.
         dataset.labels = dict_representation["y"]
         return dataset
 
     @classmethod
+    def from_npy(cls, npy_file):
+        dataset_array = np.load(npy_file)
+        _, dataset_name = os.path.split(npy_file)
+        dataset_name, _ = os.path.splitext(dataset_name)
+        dataset = cls(dataset_name)
+        dataset._images = dataset_array[:, :, :, 0:3]
+        dataset.labels = dataset_array[:, 0, 0, 3]
+        return dataset
+
+    @classmethod
     def from_csv(cls, csv_file, image_root_dir=None):
-        # dict_representation = sio.loadmat(mat_file)
         _, dataset_name = os.path.split(csv_file)
         dataset_name, _ = os.path.splitext(dataset_name)
         dataset = cls(dataset_name)
 
         df = pd.read_csv(csv_file)
-        # np.array(PIL.Image.fromarray(x).convert(mode="L"))
         dataset.image_files = [os.path.join(image_root_dir, f) for f in df["file_names"]]
         dataset.labels = df["labels"]
         return dataset
