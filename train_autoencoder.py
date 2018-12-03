@@ -16,9 +16,11 @@ if __name__ == "__main__":
     ae_model = config["general"].get("ae_model")
     color_mode = config["general"].get("color_mode")
     noise_ratio = config["general"].getfloat("noise_ratio")
-    train_set = SVNHDataset.from_mat("dataset/train_32x32.mat")
+    train_set = SVNHDataset.from_csv(config["general"].get("training_set"), "dataset_split/images/training")
+    dev_set = SVNHDataset.from_csv(config["general"].get("dev_set"), "dataset_split/images/training")
     if color_mode == "grayscale":
         train_set.set_gray_scale()
+        dev_set.set_gray_scale()
 
     tag = dt.now().strftime("%m_%d_%H%M%S") + f"_{color_mode}_{ae_model}"
     log_dir = f"logs/{tag}"
@@ -32,22 +34,24 @@ if __name__ == "__main__":
         print(f"Training with CNN autoencoder")
         from ae.ae_cnn import ae_cnn_5_layer
 
-        input_shape = train_set.images.shape[1:]
+        input_shape = train_set.images_shape
         regularization = config["ae_cnn"].getfloat("regularization")
         autoencoder, encoder = ae_cnn_5_layer(input_shape, filter_size=(3, 3), filter_number=4, reg=regularization)
-        gen, dev_gen = train_set.generator(batch_size=batch_size, ae=True, flatten=False, noise=noise_ratio)
+        gen = train_set.generator(batch_size=batch_size, ae=True, flatten=False, noise=noise_ratio)
+        dev_gen = dev_set.generator(batch_size=batch_size, ae=True, flatten=False, noise=noise_ratio)
     else:
         print(f"Training with MLP autoencoder")
         from ae.ae_simple import autoencoder_model
 
-        input_shape = np.prod(train_set.images.shape[1:])
+        input_shape = np.prod(train_set.images_shape)
         regularization = config["ae_mlp"].getfloat("regularization")
         autoencoder, encoder = autoencoder_model(input_shape,
                                                  bottleneck_width=config["ae_mlp"].getint("bottleneck_width"),
                                                  expand_ratio=config["ae_mlp"].getfloat("expand_ratio"),
                                                  hidden_layers=config["ae_mlp"].getint("hidden_layers"),
                                                  reg=regularization)
-        gen, dev_gen = train_set.generator(batch_size=batch_size, ae=True, noise=noise_ratio)
+        gen = train_set.generator(batch_size=batch_size, ae=True, noise=noise_ratio)
+        dev_gen = dev_set.generator(batch_size=batch_size, ae=True, noise=noise_ratio)
     print(f"input_shape is {input_shape}")
     adam = optimizers.adam(lr=config["optimizer"].getfloat("lr"), beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0,
                            amsgrad=False)
