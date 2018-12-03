@@ -25,7 +25,9 @@ class SVHNImage:
         return img
 
     def save(self, out_dir):
+        file_name = f"img_{self.color_mode}_{self.image_id:05d}.png"
         if self.color_mode == "rgb":
-            self.image.save(os.path.join(out_dir, f"img_{self.color_mode}_{self.image_id:05d}.png"))
+            self.image.save(os.path.join(out_dir, file_name))
         else:
-            self.greyscale.save(os.path.join(out_dir, f"img_{self.color_mode}_{self.image_id:05d}.png"))
+            self.greyscale.save(os.path.join(out_dir, file_name))
+        return file_name

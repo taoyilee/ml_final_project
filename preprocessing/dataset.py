@@ -33,27 +33,40 @@ class SVNHDataset:
     def __init__(self, name):
         self.name = name
 
-    def generator(self, batch_size=16, shuffle=False, ae=True, flatten=True):
+    def generator(self, batch_size=16, shuffle=True, ae=True, flatten=True, train_ratio=95, noise=0.5):
         idx = range(len(self))
+        x_set = self.images / 255.
+        y_set = self.labels
         if shuffle:
-            idx = np.random.permutation(range(len(self)))
-        x_set = self.images[idx]
-        y_set = self.labels[idx]
+            idx = np.random.permutation(idx)
+            x_set = x_set[idx]
+            y_set = y_set[idx]
+
+        training_number = int(len(self) * (train_ratio / 100))
+        x_train_set = x_set[:training_number]
+        if noise is not None:
+            x_train_set = x_train_set + noise * np.random.normal(loc=0.0, scale=1.0, size=x_train_set.shape)
+        y_train_set = y_set[:training_number]
+        x_dev_set = x_set[training_number:]
+        y_dev_set = y_set[training_number:]
+        print(f"Training with {len(x_train_set)} samples")
+        print(f"Dev with {len(x_dev_set)} samples")
         if flatten:
-            x_set = x_set.reshape(len(self), np.prod(x_set.shape[1:])) / 255.
+            x_train_set = x_train_set.reshape(len(x_train_set), np.prod(x_train_set.shape[1:]))
+            x_dev_set = x_dev_set.reshape(len(x_dev_set), np.prod(x_train_set.shape[1:]))
         if ae:
-            return SVHNSequence(x_set, x_set, batch_size=batch_size)
+            return SVHNSequence(x_train_set, x_train_set, batch_size=batch_size), \
+                   SVHNSequence(x_dev_set, x_dev_set, batch_size=batch_size)
         else:
-            return SVHNSequence(x_set, y_set, batch_size=batch_size)
+            return SVHNSequence(x_train_set, y_train_set, batch_size=batch_size), \
+                   SVHNSequence(x_dev_set, y_dev_set, batch_size=batch_size)
 
     @property
     def greyscale(self):
         if self._greyscale_images is None:
             raw_grey_scale = list(map(lambda x: np.array(PIL.Image.fromarray(x).convert(mode="L")),
                                       [self._images[i, :, :, :] for i in range(len(self))]))
-            self._greyscale_images = np.array(raw_grey_scale)
-
-            # self._greyscale_images = np.moveaxis(self._greyscale_images, 0, -1)[:, :, np.newaxis, :]
+            self._greyscale_images = np.array(raw_grey_scale)[:, :, :, np.newaxis]
         return self._greyscale_images
 
     @property
@@ -62,6 +75,13 @@ class SVNHDataset:
             return self._images
         else:
             return self.greyscale
+
+    @property
+    def images_flatten(self):
+        if self.color_mode == "rgb":
+            return self._images.reshape(len(self), 32 * 32 * 3)
+        else:
+            return self.greyscale.reshape(len(self), 32 * 32)
 
     @classmethod
     def from_mat(cls, mat_file):
@@ -91,11 +111,13 @@ class SVNHDataset:
 
     def save_for_viewing(self, out_dir, n=None):
         os.makedirs(out_dir, exist_ok=True)
+        file_names = []
         if n is None:
             n = len(self.labels)
         for i in range(n):
-            img = SVHNImage.from_array(self._images[:, :, :, i], image_id=i, color_mode=self.color_mode)
-            img.save(out_dir)
+            img = SVHNImage.from_array(self._images[i, :, :, :], image_id=i, color_mode=self.color_mode)
+            file_names.append(img.save(out_dir))
+        return file_names
 
     def __repr__(self):
         return f"{self.name}: {self.images.shape[3]} images in {self.color_mode} mode"

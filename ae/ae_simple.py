@@ -1,18 +1,31 @@
 from keras.layers import Input, Dense
 from keras.models import Model
+from keras.regularizers import l1
+import numpy as np
 
 
-def autoencoder_model(input_shape=32 * 32, encoding_dim=32):
-    # this is our input placeholder
+def autoencoder_model(input_shape=32 * 32, bottleneck_width=32, expand_ratio=2, hidden_layers=5, reg=None):
+    print(f"Regularization coefficient is {reg}")
     input_img = Input(shape=(input_shape,), name="input")
-    encoded = Dense(128, activation='relu')(input_img)
-    encoded = Dense(64, activation='relu')(encoded)
-    encoded = Dense(encoding_dim, activation='relu', name="encoder")(encoded)
-    # "decoded" is the lossy reconstruction of the input
-    encoded = Dense(64, activation='relu')(encoded)
-    decoded = Dense(128, activation='relu')(encoded)
-    decoded = Dense(input_shape, activation='sigmoid', name="decoder")(decoded)
+    layers = np.logspace(np.log2(input_shape * expand_ratio), np.log2(bottleneck_width), hidden_layers + 1, base=2)
+    layers = [int(l) for l in layers[:-1]]
+    print(f"Layer neurons = {layers}")
+    x = input_img
+    for i, l_width in enumerate(layers):
+        kwargs = {'activation': 'relu', 'name': f"encoder{i}"}
+        if i == 0 and reg is not None:
+            kwargs.update({'activity_regularizer': l1(reg)})
+        x = Dense(l_width, **kwargs)(x)
 
-    # this model maps an input to its reconstruction
-    encoder = Model(input_img, encoded)
-    return Model(input_img, decoded), encoder
+    kwargs = {}
+    if reg is not None:
+        kwargs = {'activity_regularizer': l1(reg)}
+    bottleneck = Dense(bottleneck_width, activation='relu', name="bottleneck", **kwargs)(x)
+    x = bottleneck
+    for i, l_width in enumerate(layers[::-1]):
+        kwargs = {'activation': 'relu', 'name': f"decoder{i}"}
+        x = Dense(l_width, **kwargs)(x)
+    x = Dense(input_shape, activation='sigmoid', name="output")(x)
+
+    encoder = Model(input_img, bottleneck)
+    return Model(input_img, x), encoder
