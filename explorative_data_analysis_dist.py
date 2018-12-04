@@ -1,11 +1,11 @@
-from preprocessing.dataset import SVNHDataset
+from preprocessing.dataset import SVHNDataset
 import numpy as np
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    train_set = SVNHDataset.from_mat("dataset/train_32x32.mat")
+    train_set = SVHNDataset.from_mat("dataset/train_32x32.mat")
     print(train_set)
     n = int(0.1 * len(train_set))
     shuffle_idx = np.random.permutation(range(len(train_set)))

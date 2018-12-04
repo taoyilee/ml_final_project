@@ -1,5 +1,4 @@
-from preprocessing.dataset import SVNHDataset
-import numpy as np
+from preprocessing.dataset import SVHNDataset, ColorConverter
 from keras.models import model_from_json
 from keras.models import Model
 import matplotlib.pyplot as plt
@@ -14,9 +13,10 @@ def plot_ae(config: cp.ConfigParser, tag=None):
     exp_dir = f"experiments/{tag}"
     print(f"loading experiment results from {exp_dir}")
 
-    train_set = SVNHDataset.from_mat("dataset/train_32x32.mat")
+    train_set = SVHNDataset.from_mat("dataset/train_32x32.mat")
     if color_mode == "grayscale":
-        train_set.set_gray_scale()
+        converter = ColorConverter(color_mode)
+        train_set = converter.transform(train_set)
 
     with open(os.path.join(exp_dir, f"autoencoder.json"), "r") as f:
         autoencoder = model_from_json(f.read())  # type: Model

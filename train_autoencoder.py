@@ -1,4 +1,4 @@
-from preprocessing.dataset import SVNHDataset
+from preprocessing.dataset import SVHNDataset, ColorConverter
 import numpy as np
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, TensorBoard, CSVLogger, ModelCheckpoint
 from keras import optimizers
@@ -16,11 +16,16 @@ if __name__ == "__main__":
     ae_model = config["general"].get("ae_model")
     color_mode = config["general"].get("color_mode")
     noise_ratio = config["general"].getfloat("noise_ratio")
-    train_set = SVNHDataset.from_npy(config["general"].get("training_set"))
-    dev_set = SVNHDataset.from_npy(config["general"].get("dev_set"))
+    train_set = SVHNDataset.from_npy(config["general"].get("training_set"))
+    dev_set = SVHNDataset.from_npy(config["general"].get("dev_set"))
+    print(f"Training Set Color_Mode is {train_set.color_mode}")
+    print(f"Dev Set Color_Mode is {train_set.color_mode}")
     if color_mode == "grayscale":
-        train_set.set_gray_scale()
-        dev_set.set_gray_scale()
+        converter = ColorConverter(color_mode)
+        train_set = converter.transform(train_set)
+        dev_set = converter.transform(dev_set)
+    print(f"Training Set Color_Mode is {train_set.color_mode}")
+    print(f"Dev Set Color_Mode is {train_set.color_mode}")
 
     tag = dt.now().strftime("%m_%d_%H%M%S") + f"_{color_mode}_{ae_model}"
     log_dir = f"logs/{tag}"
@@ -32,11 +37,15 @@ if __name__ == "__main__":
 
     if ae_model == "cnn":
         print(f"Training with CNN autoencoder")
-        from ae.ae_cnn import ae_cnn_5_layer
+        from ae.ae_cnn import ae_cnn_layer
 
         input_shape = train_set.images_shape
         regularization = config["ae_cnn"].getfloat("regularization")
-        autoencoder, encoder = ae_cnn_5_layer(input_shape, filter_size=(3, 3), filter_number=4, reg=regularization)
+        filter_size = (config["ae_cnn"].getint("filter_size"), config["ae_cnn"].getint("filter_size"))
+        autoencoder, encoder = ae_cnn_layer(input_shape, filter_size=filter_size,
+                                            filter_number=config["ae_cnn"].getint("filter_number"),
+                                            b_filter_number=config["ae_cnn"].getint("bottleneck_filter_number"),
+                                            convs=config["ae_cnn"].getint("hidden_layers"), reg=regularization)
         gen = train_set.generator(batch_size=batch_size, ae=True, flatten=False, noise=noise_ratio)
         dev_gen = dev_set.generator(batch_size=batch_size, ae=True, flatten=False, noise=noise_ratio)
     else:
@@ -56,7 +65,7 @@ if __name__ == "__main__":
     adam = optimizers.adam(lr=config["optimizer"].getfloat("lr"), beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0,
                            amsgrad=False)
 
-    autoencoder.compile(optimizer=adam, loss='mean_squared_error')
+    autoencoder.compile(optimizer=adam, loss='mse')
     with open(os.path.join(exp_dir, f"autoencoder.json"), "w+") as f:
         f.write(autoencoder.to_json())
 

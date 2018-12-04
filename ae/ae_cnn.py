@@ -3,7 +3,8 @@ from keras.models import Model
 from keras.regularizers import l1
 
 
-def ae_cnn_layer(input_shape=(32, 32, 1), filter_size=(3, 3), filter_number=16, convs=4, reg=None):
+def ae_cnn_layer(input_shape=(32, 32, 1), filter_size=(3, 3), filter_number=16, b_filter_number=4, convs=4,
+                 reg=None):
     print(f"CNN regularization is {reg}")
     print(f"CNN input_shape is {input_shape}")
     input_img = Input(shape=input_shape, name="input")
@@ -16,7 +17,7 @@ def ae_cnn_layer(input_shape=(32, 32, 1), filter_size=(3, 3), filter_number=16, 
         x = Conv2D(filter_number, filter_size, name=f"encoder_{i}", activation='relu', **kwargs)(x)
         x = MaxPooling2D(pooling_size, name=f"pooling_{i}")(x)
 
-    x = Conv2D(filter_number, filter_size, activation='relu', padding="same", name="bottle_neck_conv")(x)
+    x = Conv2D(b_filter_number, filter_size, activation='relu', padding="same", name="bottle_neck_conv")(x)
     x = MaxPooling2D(pooling_size, name="bottle_neck")(x)
     bottleneck = x
     for i in range(convs):
@@ -88,27 +89,27 @@ def ae_cnn_5_layer(input_shape=(32, 32, 1), filter_size=(3, 3), filter_number=16
     print(f"CNN input_shape is {input_shape}")
     input_img = Input(shape=input_shape, name="input")
 
-    x = Conv2D(32, filter_size, activation='relu', padding='same', name=f"encoder_1")(input_img)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_1")(input_img)
     x = MaxPooling2D((2, 2), name=f"pooling_1")(x)
-    x = Conv2D(16, filter_size, activation='relu', padding='same', name=f"encoder_2")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_2")(x)
     x = MaxPooling2D((2, 2), name=f"pooling_2")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"encoder_3")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_3")(x)
     x = MaxPooling2D((2, 2), name=f"pooling_3")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"encoder_4")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_4")(x)
     x = MaxPooling2D((2, 2), name=f"pooling_4")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"encoder_5")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_5")(x)
     x = MaxPooling2D((2, 2), name=f"pooling_5")(x)
 
     bottleneck = x
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"decoder_1")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_1")(x)
     x = UpSampling2D((2, 2), name=f"upsamp_1")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"decoder_2")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_2")(x)
     x = UpSampling2D((2, 2), name=f"upsamp_2")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"decoder_3")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_3")(x)
     x = UpSampling2D((2, 2), name=f"upsamp_3")(x)
-    x = Conv2D(16, filter_size, activation='relu', padding='same', name=f"decoder_4")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_4")(x)
     x = UpSampling2D((2, 2), name=f"upsamp_4")(x)
-    x = Conv2D(32, filter_size, activation='relu', padding='same', name=f"decoder_5")(x)
+    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_5")(x)
     x = UpSampling2D((2, 2), name=f"upsamp_5")(x)
     x = Conv2D(input_shape[2], filter_size, activation='sigmoid', padding='same', name=f"output")(x)
 

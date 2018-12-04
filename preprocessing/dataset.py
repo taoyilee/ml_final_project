@@ -4,33 +4,21 @@ import numpy as np
 from preprocessing.image import SVHNImage
 import PIL.Image
 from keras.utils import Sequence
-import pandas as pd
+import copy
+import matplotlib.pyplot as plt
 
 
-class SVHNAEFileSequence(Sequence):
-    def __init__(self, x_set, batch_size, noise=None, flatten=False, color_mode="rgb"):
+class SVHNAESequence(Sequence):
+    def __init__(self, x_set, batch_size, noise=None):
         self.x = x_set
         self.batch_size = batch_size
         self.noise = noise
-        self.color_mode = color_mode
-        self.flatten = flatten
 
     def __len__(self):
         return int(np.ceil(len(self.x) / float(self.batch_size)))
 
     def __getitem__(self, idx):
-        batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
-        if self.color_mode == "rgb":
-            batch_x = np.array([np.array(PIL.Image.open(x)) for x in batch_x])
-        else:
-            batch_x = np.array([np.array(PIL.Image.open(x).convert("L")) for x in batch_x])
-            batch_x = batch_x[:, :, :, np.newaxis]
-
-        batch_x = batch_x.astype("float32")
-        batch_x /= 255.0
-        if self.flatten:
-            batch_x = batch_x.reshape(batch_x.shape[0], np.prod(batch_x.shape[1:]))
-
+        batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size] / 255.0
         batch_y = batch_x.copy()
         if self.noise is not None:
             batch_x = batch_x + self.noise * np.random.normal(loc=0.0, scale=1.0, size=batch_x.shape)
@@ -47,129 +35,139 @@ class SVHNSequence(Sequence):
         return int(np.ceil(len(self.x) / float(self.batch_size)))
 
     def __getitem__(self, idx):
-        batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size] / 255.0
         if self.noise is not None:
             batch_x = batch_x + self.noise * np.random.normal(loc=0.0, scale=1.0, size=batch_x.shape)
         batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
         return batch_x, batch_y
 
 
-class SVNHDataset:
+class SVHNDataset:
     _images = []  # type: np.ndarray
     _greyscale_images = None
     labels = []  # type: np.ndarray
-    color_mode = "rgb"
     image_files = None
 
     def __len__(self):
         return len(self.labels)
 
-    def __init__(self, name):
+    def __init__(self, name, images, labels):
         self.name = name
+        self._images = images
+        self.labels = labels
 
-    def generator(self, batch_size=16, ae=True, flatten=True, noise=0.5):
-        if self.image_files is None:
-            x_set = self.images
-            x_set_orig = x_set.copy()
-            y_set = self.labels
-            if flatten:
-                x_set = x_set.reshape(len(self), np.prod(x_set.shape[1:]))
-            if ae:
-                return SVHNSequence(x_set, x_set_orig, batch_size=batch_size, noise=noise)
-            else:
-                return SVHNSequence(x_set, y_set, batch_size=batch_size, noise=noise)
+    def generator(self, batch_size=16, ae=True, flatten=True, noise=0.001):
+        x = self.images_flatten if flatten else self.images
+        if ae:
+            return SVHNAESequence(x, batch_size=batch_size, noise=noise)
         else:
-            return SVHNAEFileSequence(self.image_files, batch_size=batch_size, noise=noise, flatten=flatten,
-                                      color_mode=self.color_mode)
-
-    @property
-    def greyscale(self):
-        if self._greyscale_images is None:
-            raw_grey_scale = list(map(lambda x: np.array(PIL.Image.fromarray(x).convert(mode="L")),
-                                      [self._images[i, :, :, :] for i in range(len(self))]))
-            self._greyscale_images = np.array(raw_grey_scale)[:, :, :, np.newaxis]
-        return self._greyscale_images
+            y_set = self.labels
+            return SVHNSequence(x, y_set, batch_size=batch_size, noise=noise)
 
     @property
     def images_shape(self):
-        if self.image_files is None:
-            return self.images.shape
-        else:
-            if self.color_mode == "rgb":
-                return np.array(PIL.Image.open(self.image_files[0])).shape
-            else:
-                return np.array(PIL.Image.open(self.image_files[0]).convert("L"))[:, :, np.newaxis].shape
+        return self._images.shape[1:]
 
     @property
     def images(self):
-        if self.color_mode == "rgb":
-            return self._images
-        else:
-            return self.greyscale
+        return self._images
 
     @property
     def images_flatten(self):
-        if self.color_mode == "rgb":
-            return self._images.reshape(len(self), 32 * 32 * 3)
-        else:
-            return self.greyscale.reshape(len(self), 32 * 32)
+        return self._images.reshape(len(self), np.prod(self.images_shape))
 
     @classmethod
     def from_mat(cls, mat_file):
         dict_representation = sio.loadmat(mat_file)
         _, dataset_name = os.path.split(mat_file)
         dataset_name, _ = os.path.splitext(dataset_name)
-        dataset = cls(dataset_name)
-        dataset._images = np.moveaxis(dict_representation["X"], -1, 0) / 255.
-        dataset.labels = dict_representation["y"]
-        return dataset
+        images = np.moveaxis(dict_representation["X"], -1, 0)
+        labels = dict_representation["y"]
+        return cls(dataset_name, images, labels)
 
     @classmethod
     def from_npy(cls, npy_file):
         dataset_array = np.load(npy_file)
         _, dataset_name = os.path.split(npy_file)
         dataset_name, _ = os.path.splitext(dataset_name)
-        dataset = cls(dataset_name)
-        dataset._images = dataset_array[:, :, :, 0:3]
-        dataset.labels = dataset_array[:, 0, 0, 3]
-        return dataset
+        images = dataset_array[:, :, :, 0:3]
+        labels = dataset_array[:, 0, 0, 3]
+        print(f"Loading from {npy_file}")
+        print(f"Image has shape {images.shape}")
+        print(f"Label has shape {labels.shape}")
+        return cls(dataset_name, images, labels)
 
-    @classmethod
-    def from_csv(cls, csv_file, image_root_dir=None):
-        _, dataset_name = os.path.split(csv_file)
-        dataset_name, _ = os.path.splitext(dataset_name)
-        dataset = cls(dataset_name)
-
-        df = pd.read_csv(csv_file)
-        dataset.image_files = [os.path.join(image_root_dir, f) for f in df["file_names"]]
-        dataset.labels = df["labels"]
-        return dataset
-
-    def set_gray_scale(self):
-        print(f"Dataset set to greyscale mode")
-        self.color_mode = "grayscale"
-
-    def save_matrix(self, out_dir, row=5, col=5):
-        out_image = np.zeros((row * 32 + row + 1, col * 32 + col + 1, 3 if self.color_mode == "rgb" else 1),
-                             dtype=np.uint8)
-        k = 0
-        for i in range(row):
-            for j in range(row):
-                start_x = 1 + i * 32 + i
-                start_y = 1 + j * 32 + j
-                out_image[start_x:start_x + 32, start_y:start_y + 32, :] = self.images[:, :, :, k]
-                k += 1
-        PIL.Image.fromarray(out_image.squeeze()).save(os.path.join(out_dir, f"img_matrix_{self.color_mode}.png"))
-
-    def save_for_viewing(self, out_dir, n=None):
-        os.makedirs(out_dir, exist_ok=True)
-        file_names = []
-        if n is None:
-            n = len(self.labels)
-        for i in range(n):
-            img = SVHNImage.from_array(self._images[i, :, :, :], image_id=i, color_mode=self.color_mode)
-            file_names.append(img.save(out_dir))
-        return file_names
+    @property
+    def color_mode(self):
+        if self._images.shape[3] == 3:
+            return "rgb"
+        else:
+            return "grayscale"
 
     def __repr__(self):
         return f"{self.name}: {self.images.shape[3]} images in {self.color_mode} mode"
+
+
+class ColorConverter:
+    MAPPING = {"grayscale": "L"}
+
+    def __init__(self, target_color="grayscale"):
+        self.target_color = target_color
+
+    def transform(self, dataset: SVHNDataset):
+        print(f"Converting {dataset.name} to {self.target_color}")
+        new_dataset = copy.copy(dataset)  # type:SVHNDataset
+
+        def convert_image(x, mode="L"):
+            x_conv = np.array(PIL.Image.fromarray(x).convert(mode))
+            if mode == "L":
+                x_conv = x_conv[..., np.newaxis]
+            return x_conv
+
+        image_converted = np.array([convert_image(new_dataset.images[i, ...], self.MAPPING[self.target_color]) for i in
+                                    range(len(new_dataset))])
+        new_dataset._images = image_converted
+        return new_dataset
+
+
+class SVHNPlotter:
+    def __init__(self, output_dir, print_label=True, label_size=12):
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
+        self.print_label = print_label
+        self.label_size = label_size
+
+    def plot_image(self, image: np.ndarray, label):
+        plt.imshow(image.squeeze())
+        plt.axis('off')
+        if image.shape[2] == 1:
+            plt.gray()
+        if self.print_label:
+            plt.text(0, 0, f"{label}", color="red", fontsize=self.label_size)
+
+    def save_images(self, dataset: SVHNDataset, n=None):
+        file_names = []
+        if n is None:
+            n = len(dataset)
+        for i in range(n):
+            plt.figure()
+            self.plot_image(dataset.images[i], dataset.labels[i])
+            file_name = os.path.join(self.output_dir, f"image_{i:05d}.png")
+            print(f"Saving to {file_name}")
+            plt.savefig(file_name)
+            plt.close()
+            file_names.append(file_name)
+        return file_names
+
+    def save_mosaic(self, dataset: SVHNDataset, row=10, col=10):
+        k = 1
+        plt.figure(figsize=(1.2 * row, 1.2 * col))
+        for i in range(row):
+            for j in range(row):
+                plt.subplot(row, col, k)
+                self.plot_image(dataset.images[k - 1], dataset.labels[k - 1])
+                k += 1
+        file_name = os.path.join(self.output_dir, f"mosaic.png")
+        plt.savefig(file_name)
+        plt.close()
+        return file_name

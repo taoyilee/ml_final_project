@@ -1,4 +1,4 @@
-from preprocessing.dataset import SVNHDataset
+from preprocessing.dataset import SVHNDataset
 import numpy as np
 import configparser as cp
 from datetime import datetime as dt
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     ae_model = config["general"].get("ae_model")
     color_mode = config["general"].get("color_mode")
     noise_ratio = config["general"].getfloat("noise_ratio")
-    train_set = SVNHDataset.from_mat("dataset/train_32x32.mat")
+    train_set = SVHNDataset.from_mat("dataset/train_32x32.mat")
     print(train_set.images_flatten.shape)
 
     pca = PCA(n_components=5)

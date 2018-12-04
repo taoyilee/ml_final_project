@@ -1,4 +1,4 @@
-from preprocessing.dataset import SVNHDataset
+from preprocessing.dataset import SVHNDataset
 import os
 import configparser as cp
 import pandas as pd
@@ -9,7 +9,7 @@ import PIL.Image
 def dataset_image(config):
     if not os.path.exists("dataset_split/all.csv"):
         os.makedirs("dataset_split", exist_ok=True)
-        train_set = SVNHDataset.from_mat("dataset/train_32x32.mat")
+        train_set = SVHNDataset.from_mat("dataset/train_32x32.mat")
         file_names = train_set.save_for_viewing("dataset_split/images/training")
         df = pd.DataFrame()
         df["labels"] = train_set.labels.flatten()
@@ -19,8 +19,8 @@ def dataset_image(config):
 
 def dataset_split(config):
     df = pd.read_csv("dataset_split/all.csv")
-    if not os.path.exists(config["general"].get("training_set")) or not os.path.exists(
-            config["general"].get("dev_set")):
+    if not os.path.exists(config["general"].get("training_set_csv")) or not os.path.exists(
+            config["general"].get("dev_set_csv")):
         df_shuffled = df.sample(frac=1)
         print(df_shuffled[:10])
         training_ratio = config["general"].getfloat("train_ratio")
@@ -31,14 +31,14 @@ def dataset_split(config):
         df_dev = df_shuffled[training_number:]
         print(f"Training samples: {len(df_trn)}")
         print(f"Validating samples: {len(df_dev)}")
-        df_trn.to_csv(config["general"].get("training_set"), index=False)
-        df_dev.to_csv(config["general"].get("dev_set"), index=False)
+        df_trn.to_csv(config["general"].get("training_set_Csv"), index=False)
+        df_dev.to_csv(config["general"].get("dev_set_csv"), index=False)
 
 
 def dataset_to_batch(config):
     bs = config["general"].getint("batch_size")
-    df_trn = pd.read_csv(config["general"].get("training_set"))
-    df_dev = pd.read_csv(config["general"].get("dev_set"))
+    df_trn = pd.read_csv(config["general"].get("training_set_csv"))
+    df_dev = pd.read_csv(config["general"].get("dev_set_csv"))
     print(f"Spliiting for batchsize = {bs}")
     print(f"Training set has {len(df_trn)} samples, {len(df_trn) // bs + 1} batches")
     os.makedirs("dataset_split/arrays/training/batch/512/gray", exist_ok=True)
@@ -86,52 +86,38 @@ def dataset_to_batch(config):
 
 
 def dataset_to_npy(config):
-    df_trn = pd.read_csv(config["general"].get("training_set"))
-    df_dev = pd.read_csv(config["general"].get("dev_set"))
-    print(f"Spliiting for batchsize = {bs}")
+    training_set = config["general"].get("training_set_csv")
+    print(f"Training set is {training_set}")
+    dev_set = config["general"].get("dev_set_csv")
+    print(f"Dev set is {dev_set}")
+    df_trn = pd.read_csv(training_set)
+    df_dev = pd.read_csv(dev_set)
     print(f"Training set has {len(df_trn)} samples")
-    os.makedirs("dataset_split/arrays/training/", exist_ok=True)
     os.makedirs("dataset_split/arrays/training/", exist_ok=True)
 
     labels = df_trn["labels"]
     file_names = df_trn["file_names"]
-    batch = np.zeros((len(labels), 32, 32, 4), dtype=np.float32)
+    batch = np.zeros((len(labels), 32, 32, 4), dtype=np.uint8)
     batch[:, 0, 0, 3] = labels
     images = np.array(
         [np.array(PIL.Image.open(os.path.join("dataset_split/images/training", x))) for x in file_names])
-    batch[:, :, :, 0:3] = images / 255.0
+    batch[:, :, :, 0:3] = images
+    print(f"{np.max(batch)}/{np.min(batch)}/{np.mean(batch)}/{np.std(batch)}")
     np.save(f"dataset_split/arrays/training/rgb_all", batch)
 
-    batch = np.zeros((len(labels), 32, 32, 2), dtype=np.float32)
-    batch[:, 0, 0, 1] = labels
-
-    images = np.array(
-        [np.array(PIL.Image.open(os.path.join("dataset_split/images/training", x)).convert("L")) for x in
-         file_names])
-    batch[:, :, :, 0] = images / 255.0
-    print(f"{np.max(batch)}/{np.min(batch)}/{np.mean(batch):.3f}/{np.std(batch):.3f}")
-    np.save(f"dataset_split/arrays/training/gray_all", batch)
     print(f"Dev set has {len(df_dev)} samples")
 
-    os.makedirs("dataset_split/arrays/dev/", exist_ok=True)
     os.makedirs("dataset_split/arrays/dev/", exist_ok=True)
 
     labels = df_dev["labels"]
     file_names = df_dev["file_names"]
-    batch = np.zeros((len(labels), 32, 32, 4), dtype=np.float32)
+    batch = np.zeros((len(labels), 32, 32, 4), dtype=np.uint8)
     batch[:, 0, 0, 3] = labels
     images = np.array(
         [np.array(PIL.Image.open(os.path.join("dataset_split/images/training", x))) for x in file_names])
-    batch[:, :, :, 0:3] = images / 255.0
+    batch[:, :, :, 0:3] = images
+    print(f"{np.max(batch)}/{np.min(batch)}/{np.mean(batch)}/{np.std(batch)}")
     np.save(f"dataset_split/arrays/dev/rgb_all", batch)
-
-    batch = np.zeros((len(labels), 32, 32, 2), dtype=np.float32)
-    batch[:, 0, 0, 1] = labels
-    images = np.array(
-        [np.array(PIL.Image.open(os.path.join("dataset_split/images/training", x)).convert("L")) for x in
-         file_names])
-    batch[:, :, :, 0] = images / 255.0
-    np.save(f"dataset_split/arrays/dev/gray_all", batch)
 
 
 if __name__ == "__main__":

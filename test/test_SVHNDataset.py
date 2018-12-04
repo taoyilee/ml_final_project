@@ -1,40 +1,40 @@
-from preprocessing.dataset import SVNHDataset
+from preprocessing.dataset import SVHNDataset
 import numpy as np
 import pytest
 
 
 class TestSVHNDataset:
     def test_name(self):
-        ds = SVNHDataset("test")
+        ds = SVHNDataset("test")
         assert ds.name == "test"
 
     def test_from_mat(self):
-        ds = SVNHDataset.from_mat("dataset/test_32x32.mat")
+        ds = SVHNDataset.from_mat("dataset/test_32x32.mat")
         assert ds.name == "test_32x32"
 
     def test_from_npy(self):
-        ds = SVNHDataset.from_npy("dataset_split/arrays/training/rgb_all.npy")
+        ds = SVHNDataset.from_npy("dataset_split/arrays/training/rgb_all.npy")
         assert ds.name == "rgb_all"
         assert ds.labels.shape == (71791,)
         assert ds.images.shape == (71791, 32, 32, 3)
 
     @pytest.mark.parametrize("n", list(range(1, 100, 10)))
     def test_generator_size(self, n):
-        ds = SVNHDataset("test")
+        ds = SVHNDataset("test")
         ds._images = np.random.randint(low=0, high=255, size=(n, 32, 32, 3))
         ds.labels = np.random.randint(low=1, high=10, size=(n, 1))
         assert n == len(ds.generator(batch_size=1))
 
     @pytest.mark.parametrize("n, bs", [(100, 16), (3000, 12), (4123, 7)])
     def test_generator_batch(self, n, bs):
-        ds = SVNHDataset("test")
+        ds = SVHNDataset("test")
         ds._images = np.random.randint(low=0, high=255, size=(n, 32, 32, 3))
         ds.labels = np.random.randint(low=1, high=10, size=(n, 1))
         assert np.ceil(n / bs) == len(ds.generator(batch_size=bs))
 
     @pytest.mark.parametrize("n, bs", [(1, 16), (100, 16), (3000, 12), (4123, 7)])
     def test_generator_datashape(self, n, bs):
-        ds = SVNHDataset("test")
+        ds = SVHNDataset("test")
         ds._images = np.random.randint(low=0, high=255, size=(n, 32, 32, 3))
         ds.labels = np.random.randint(low=1, high=10, size=(n, 1))
         ds_gen = ds.generator(batch_size=bs, flatten=False, ae=False)
