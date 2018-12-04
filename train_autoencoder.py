@@ -1,6 +1,7 @@
 from preprocessing.dataset import SVHNDataset, ColorConverter
 import numpy as np
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, TensorBoard, CSVLogger, ModelCheckpoint
+from callbacks.save_encoder import SaveEncoder
 from keras import optimizers
 import configparser as cp
 from datetime import datetime as dt
@@ -37,7 +38,7 @@ if __name__ == "__main__":
 
     if ae_model == "cnn":
         print(f"Training with CNN autoencoder")
-        from ae.ae_cnn import ae_cnn_layer
+        from models.ae.ae_cnn import ae_cnn_layer
 
         input_shape = train_set.images_shape
         regularization = config["ae_cnn"].getfloat("regularization")
@@ -50,7 +51,7 @@ if __name__ == "__main__":
         dev_gen = dev_set.generator(batch_size=batch_size, ae=True, flatten=False, noise=noise_ratio)
     else:
         print(f"Training with MLP autoencoder")
-        from ae.ae_simple import autoencoder_model
+        from models.ae.ae_simple import autoencoder_model
 
         input_shape = np.prod(train_set.images_shape)
         regularization = config["ae_mlp"].getfloat("regularization")
@@ -68,20 +69,23 @@ if __name__ == "__main__":
     autoencoder.compile(optimizer=adam, loss='mse')
     with open(os.path.join(exp_dir, f"autoencoder.json"), "w+") as f:
         f.write(autoencoder.to_json())
+    with open(os.path.join(exp_dir, f"encoder.json"), "w+") as f:
+        f.write(encoder.to_json())
 
     callbacks = []
+    callbacks.append(SaveEncoder(encoder, output_dir=exp_dir))
     callbacks.append(
         ModelCheckpoint(os.path.join(exp_dir, "full_weights.{epoch:02d}.h5"), monitor='val_loss', verbose=0,
                         save_best_only=False, save_weights_only=False, mode='auto', period=1))
     callbacks.append(CSVLogger(os.path.join(exp_dir, f"training.csv"), separator=',', append=False))
     callbacks.append(
         ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=config["training"].getint("patientce_reduce_lr"),
-                          verbose=config["training"].getint("verbosity"), mode='min', min_delta=1e-5, cooldown=0,
-                          min_lr=1e-10))
+                          verbose=config["training"].getint("verbosity"), mode='min', min_delta=1e-6, cooldown=0,
+                          min_lr=1e-12))
     if config["general"].getboolean("early_stop"):
         print("Early Stop enabled")
         callbacks.append(
-            EarlyStopping(monitor='val_loss', min_delta=1e-6, patience=3, verbose=1, mode='min',
+            EarlyStopping(monitor='val_loss', min_delta=1e-8, patience=5, verbose=1, mode='min',
                           baseline=None, restore_best_weights=False))
     else:
         print("Early Stop disabled")
