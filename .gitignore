@@ -1,5 +1,16 @@
-.idea
+*.xlsx
+experiments
+dataset_split
+dataset_split
+images
+logs
+venv36
 
+
+.idea
+.tar.gz
+.png
+dataset
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
