@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 import PIL.Image
+from util.fn import split_path
 
 
 def dataset_to_image_dir(config):
@@ -86,36 +87,12 @@ def dataset_to_batch(config):
         np.save(f"dataset_split/arrays/dev/batch/512/gray/{bn}", batch)
 
 
-def dataset_to_npy(config):
-    training_set = config["general"].get("training_set_csv")
-    print(f"Training set is {training_set}")
-    dev_set = config["general"].get("dev_set_csv")
-    print(f"Dev set is {dev_set}")
-    df_trn = pd.read_csv(training_set)
-    df_dev = pd.read_csv(dev_set)
-    print(f"Training set has {len(df_trn)} samples")
-    os.makedirs("dataset_split/arrays/training/", exist_ok=True)
+def dataset_to_npy(mat_file):
+    dataset = SVHNDataset.from_mat(mat_file)
+    print(f"{mat_file} set has {len(dataset)} samples")
 
-    labels = df_trn["labels"]
-    file_names = df_trn["file_names"]
-    batch = np.zeros((len(labels), 32, 32, 4), dtype=np.uint8)
-    batch[:, 0, 0, 3] = labels
-    images = np.array(
-        [np.array(PIL.Image.open(os.path.join("dataset_split/images/training", x))) for x in file_names])
-    batch[:, :, :, 0:3] = images
+    batch = np.zeros((len(dataset), 32, 32, 4), dtype=np.uint8)  # Augment the 3rd dimension of dataset
+    batch[:, 0, 0, 3] = dataset.labels.squeeze()  # and store label in the 0, 0 element of that axis
+    batch[:, :, :, 0:3] = dataset.images
     print(f"{np.max(batch)}/{np.min(batch)}/{np.mean(batch)}/{np.std(batch)}")
-    np.save(f"dataset_split/arrays/training/rgb_all", batch)
-
-    print(f"Dev set has {len(df_dev)} samples")
-
-    os.makedirs("dataset_split/arrays/dev/", exist_ok=True)
-
-    labels = df_dev["labels"]
-    file_names = df_dev["file_names"]
-    batch = np.zeros((len(labels), 32, 32, 4), dtype=np.uint8)
-    batch[:, 0, 0, 3] = labels
-    images = np.array(
-        [np.array(PIL.Image.open(os.path.join("dataset_split/images/training", x))) for x in file_names])
-    batch[:, :, :, 0:3] = images
-    print(f"{np.max(batch)}/{np.min(batch)}/{np.mean(batch)}/{np.std(batch)}")
-    np.save(f"dataset_split/arrays/dev/rgb_all", batch)
+    np.save(f"dataset_split/arrays/{split_path(mat_file)[0]}", batch)
