@@ -152,7 +152,7 @@ class SVHNPlotter:
         for i in range(n):
             plt.figure()
             self.plot_image(dataset.images[i], dataset.labels[i])
-            file_name = os.path.join(self.output_dir, f"image_{i:05d}.png")
+            file_name = os.path.join(self.output_dir, f"image_{dataset.name}_{i:05d}.png")
             print(f"Saving to {file_name}")
             plt.savefig(file_name)
             plt.close()
@@ -167,7 +167,7 @@ class SVHNPlotter:
                 plt.subplot(row, col, k)
                 self.plot_image(dataset.images[k - 1], dataset.labels[k - 1])
                 k += 1
-        file_name = os.path.join(self.output_dir, f"mosaic.png")
+        file_name = os.path.join(self.output_dir, f"mosaic_{dataset.name}.png")
         plt.savefig(file_name)
         plt.close()
         return file_name
