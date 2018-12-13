@@ -6,5 +6,3 @@ if __name__ == "__main__":
     config.read("config.ini")
     dataset_to_image_dir(config)
     dataset_split(config)
-    # dataset_to_batch(config)
-    dataset_to_npy(config)

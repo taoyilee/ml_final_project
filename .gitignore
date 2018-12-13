@@ -1,7 +1,6 @@
 *.xlsx
 experiments
-dataset_split
-dataset_split
+dataset_split/images
 images
 logs
 venv36
