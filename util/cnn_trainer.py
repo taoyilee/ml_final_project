@@ -54,9 +54,11 @@ def prepare_dataset(trn_npy, dev_npy, noise_ratio=0.07, color_mode="rgb", batch_
     return training_gen, validation_gen
 
 
-def prepare_model(lr=1e-4, exp_dir="experiments", print_summary=True, color_mode="grayscale"):
+def prepare_model(lr=1e-4, exp_dir="experiments", print_summary=True, color_mode="grayscale", droprate=0.2,
+                  batch_norm=True, fc_hidden=1024, filter_number=128):
     print(f"*** PREPARING CNN MODEL *** ")
-    cnn_model = svhn_cnn(color_mode=color_mode)
+    cnn_model = svhn_cnn(color_mode=color_mode, droprate=droprate, batch_norm=batch_norm, fc_hidden=fc_hidden,
+                         filter_number=filter_number)
     adam = optimizers.adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0,
                            amsgrad=False)
 

@@ -3,7 +3,6 @@ import configparser as cp
 from datetime import datetime as dt
 import os
 from shutil import copyfile
-from plot.plot_autoencoder import plot_ae
 
 if __name__ == "__main__":
     config = cp.ConfigParser()
@@ -26,8 +25,11 @@ if __name__ == "__main__":
                                   patience_lr=config["training"].getint("patientce_reduce_lr"),
                                   batch_size=batch_size, log_dir=log_dir,
                                   verbosity=config["training"].getint("verbosity"))
-    cnn_model = prepare_model(lr=config["optimizer"].getfloat("lr"), exp_dir="experiments", color_mode=color_mode,
-                              print_summary=True)
+    cnn_model = prepare_model(lr=config["optimizer"].getfloat("lr"), exp_dir=exp_dir, color_mode=color_mode,
+                              print_summary=True, droprate=config["svhn_cnn"].getfloat("droprate"),
+                              batch_norm=config["svhn_cnn"].getboolean("batch_norm"),
+                              fc_hidden=config["svhn_cnn"].getint("fc_hidden"),
+                              filter_number=config["svhn_cnn"].getint("filter_number"))
 
     cnn_model.fit_generator(training_gen, validation_data=validation_gen, epochs=config["general"].getint("epoch"),
                             shuffle=True, callbacks=callbacks, verbose=config["training"].getint("verbosity"),
