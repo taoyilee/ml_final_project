@@ -35,13 +35,12 @@ def prepare_callbacks(early_stop=True, exp_dir="experiments", log_dir="logs", pa
 
 
 def prepare_dataset(trn_npy, dev_npy, noise_ratio=0.07, ae=False, color_mode="rgb", batch_size=32):
-    print("*** PREPARING DATASET ***")
+    print(f"*** PREPARING DATASET {color_mode}***")
     train_set = SVHNDataset.from_npy(trn_npy)
     dev_set = SVHNDataset.from_npy(dev_npy)
-    print(f"Training Set Color_Mode is {train_set.color_mode}")
-    print(f"Dev Set Color_Mode is {train_set.color_mode}")
     if color_mode == "grayscale":
-        converter = ColorConverter(color_mode)
+        print(f"Converting to grayscale")
+        converter = ColorConverter()
         train_set = converter.transform(train_set)
         dev_set = converter.transform(dev_set)
     print(f"Training Set Color_Mode is {train_set.color_mode}")

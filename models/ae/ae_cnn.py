@@ -56,6 +56,6 @@ def svhn_ae(color_mode="grayscale", filter_size=3, filter_number=64, b_filter_nu
                          convs=convs, reg=reg, batch_norm=batch_norm, droprate=droprate)
 
     ae_decoder = decoder(input_shape=ae_encoder.output_shape[1], color_mode=color_mode, filter_size=filter_size,
-                         filter_number=filter_number, reg=reg, convs=6, batch_norm=batch_norm, droprate=droprate)
+                         filter_number=filter_number, reg=reg, convs=6, batch_norm=batch_norm, droprate=0)
     autoencoder = Model(inputs=ae_encoder.input, outputs=ae_decoder(ae_encoder.output))
     return autoencoder, ae_encoder
