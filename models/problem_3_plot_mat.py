@@ -1,4 +1,4 @@
-from homework4.problem_3 import plot_knn_core, plot_knn_combined_core, plot_knn_alpha, plot_knn_alpha_mat
+from models.problem_3 import plot_knn_core, plot_knn_combined_core, plot_knn_alpha, plot_knn_alpha_mat
 import numpy as np
 import pandas as pd
 

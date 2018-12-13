@@ -1,6 +1,6 @@
 import numpy as np
 import pickle
-from homework4.problem_4 import sample_train_dt, plot_dt_mParent
+from models.problem_4 import sample_train_dt, plot_dt_mParent
 
 if __name__ == "__main__":
     X = np.genfromtxt('data/X_train.txt', delimiter=None)

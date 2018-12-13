@@ -1,9 +1,9 @@
 from keras.utils import to_categorical
 import numpy as np
-from homework4.common import sample_and_split
+from models.common import sample_and_split
 from keras.callbacks import TensorBoard, ReduceLROnPlateau, EarlyStopping, CSVLogger
-from homework4.auc_callback import auc_callback
-from homework4.dnn_libs import prepare_model
+from models.auc_callback import auc_callback
+from models.dnn_libs import prepare_model
 import random
 import string
 import configparser

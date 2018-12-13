@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
-from homework4.problem_4 import sample_train_dt
-from homework4.problem_4 import plot_dt_mLeaf
+from models.problem_4 import sample_train_dt
+from models.problem_4 import plot_dt_mLeaf
 
 if __name__ == "__main__":
     X = np.genfromtxt('data/X_train.txt', delimiter=None)

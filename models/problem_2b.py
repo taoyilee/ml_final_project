@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 import mltools as ml
-from homework4.problem_2 import sample_train
+from models.problem_2 import sample_train
 
 if __name__ == "__main__":
     X = np.genfromtxt('data/X_train.txt', delimiter=None)
