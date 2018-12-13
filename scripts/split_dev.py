@@ -1,12 +1,13 @@
 import numpy as np
 import configparser as cp
+import os
 from util.fn import split_path
 from preprocessing.dataset import SVHNDataset, SVHNPlotter, ColorConverter
 
 if __name__ == "__main__":
     config = cp.ConfigParser()
     config.read("config.ini")
-    original_train = 'dataset_split\\arrays\\train_32x32.npy'
+    original_train = os.path.join("dataset_split", "arrays", "train_32x32.npy")
     trainin_set = np.load(original_train)
     print(trainin_set.shape)
 
@@ -23,7 +24,7 @@ if __name__ == "__main__":
     print(f"Training samples: {len(trn_set)} {trn_set.shape}")
     print(f"Validating samples: {len(dev_set)} {dev_set.shape}")
     np.save(f"dataset_split/arrays/train_trn", trn_set)
-    original_train = 'dataset_split\\arrays\\extra_32x32.npy'
+    original_train = os.path.join("dataset_split", "arrays", "extra_32x32.npy")
     extra_set = np.load(original_train)
     trn_extra = np.concatenate((trn_set, extra_set), axis=0)
     print(f"train_extra has shape {trn_extra.shape}")
