@@ -1,17 +1,7 @@
-from preprocessing.dataset import SVHNDataset, ColorConverter
-import numpy as np
-from keras.callbacks import ReduceLROnPlateau, EarlyStopping, TensorBoard, CSVLogger, ModelCheckpoint
-from callbacks.save_encoder import SaveEncoder
-from keras import optimizers
 from keras.applications import DenseNet121
-from keras.models import Model
+from keras.models import Model, Sequential
 
-import configparser as cp
-from datetime import datetime as dt
-import os
-from shutil import copyfile
-from plot.plot_autoencoder import plot_ae
-from keras.layers import Input, Dense, GlobalAveragePooling2D
+from keras.layers import BatchNormalization, Dense, GlobalAveragePooling2D, Conv2D
 
 
 def dense_net(weights=None):
@@ -23,4 +13,21 @@ def dense_net(weights=None):
     x = Dense(1024, activation='relu', name="mlp_hidden0")(x)
     output = Dense(10, activation='sigmoid', name="output")(x)
     model = Model(inputs=bottleneck.input, outputs=output)
+    return model
+
+
+def svhn_cnn(weights=None, color_mode="grayscale"):
+    model = Sequential()
+    model.add(
+        Conv2D(128, kernel_size=5, activation='relu', input_shape=(32, 32, 1 if color_mode == "grayscale" else 3)))
+    model.add(BatchNormalization())
+    model.add(Conv2D(128, kernel_size=3, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(Conv2D(128, kernel_size=3, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(GlobalAveragePooling2D())
+    model.add(Dense(1024, activation='relu', name="mlp_hidden0"))
+    model.add(BatchNormalization())
+    model.add(Dense(10, activation='softmax', name="output"))
+
     return model
