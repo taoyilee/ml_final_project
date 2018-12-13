@@ -1,7 +1,7 @@
 import scipy.io as sio
 import os
 import numpy as np
-from preprocessing.image import SVHNImage
+from keras.utils import to_categorical
 import PIL.Image
 from keras.utils import Sequence
 import copy
@@ -26,10 +26,11 @@ class SVHNAESequence(Sequence):
 
 
 class SVHNSequence(Sequence):
-    def __init__(self, x_set, y_set, batch_size, noise=None):
+    def __init__(self, x_set, y_set, batch_size, noise=None, to_categorical=True):
         self.x, self.y = x_set, y_set
         self.batch_size = batch_size
         self.noise = noise
+        self.to_categorical = to_categorical
 
     def __len__(self):
         return int(np.ceil(len(self.x) / float(self.batch_size)))
@@ -39,6 +40,9 @@ class SVHNSequence(Sequence):
         if self.noise is not None:
             batch_x = batch_x + self.noise * np.random.normal(loc=0.0, scale=1.0, size=batch_x.shape)
         batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
+        if self.to_categorical:  # convert to one hot encoding
+            batch_y = batch_y - 1
+            batch_y = to_categorical(batch_y, num_classes=10)
         return batch_x, batch_y
 
 
@@ -152,7 +156,7 @@ class SVHNPlotter:
         for i in range(n):
             plt.figure()
             self.plot_image(dataset.images[i], dataset.labels[i])
-            file_name = os.path.join(self.output_dir, f"image_{i:05d}.png")
+            file_name = os.path.join(self.output_dir, f"image_{dataset.name}_{i:05d}.png")
             print(f"Saving to {file_name}")
             plt.savefig(file_name)
             plt.close()
@@ -167,7 +171,7 @@ class SVHNPlotter:
                 plt.subplot(row, col, k)
                 self.plot_image(dataset.images[k - 1], dataset.labels[k - 1])
                 k += 1
-        file_name = os.path.join(self.output_dir, f"mosaic.png")
+        file_name = os.path.join(self.output_dir, f"mosaic_{dataset.name}.png")
         plt.savefig(file_name)
         plt.close()
         return file_name
