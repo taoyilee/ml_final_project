@@ -1,5 +1,6 @@
-from preprocessing.dataset import SVHNDataset, ColorConverter
 import numpy as np
+from keras import metrics
+from util.cnn_trainer import prepare_dataset
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, TensorBoard, CSVLogger, ModelCheckpoint
 from callbacks.save_encoder import SaveEncoder
 from keras import optimizers
@@ -17,18 +18,11 @@ if __name__ == "__main__":
     ae_model = config["general"].get("ae_model")
     color_mode = config["general"].get("color_mode")
     noise_ratio = config["general"].getfloat("noise_ratio")
-    train_set = SVHNDataset.from_npy(config["general"].get("training_set"))
-    dev_set = SVHNDataset.from_npy(config["general"].get("dev_set"))
-    print(f"Training Set Color_Mode is {train_set.color_mode}")
-    print(f"Dev Set Color_Mode is {train_set.color_mode}")
-    if color_mode == "grayscale":
-        converter = ColorConverter(color_mode)
-        train_set = converter.transform(train_set)
-        dev_set = converter.transform(dev_set)
-    print(f"Training Set Color_Mode is {train_set.color_mode}")
-    print(f"Dev Set Color_Mode is {train_set.color_mode}")
+    training_gen, validation_gen = prepare_dataset(config["general"].get("training_set"),
+                                                   config["general"].get("dev_set"), color_mode=color_mode, ae=True,
+                                                   batch_size=batch_size, noise_ratio=noise_ratio)
 
-    tag = dt.now().strftime("%m_%d_%H%M%S") + f"_{color_mode}_{ae_model}"
+    tag = dt.now().strftime("%m_%d_%H%M%S") + f"_{color_mode}_ae_{ae_model}"
     log_dir = f"logs/{tag}"
     os.makedirs(log_dir, exist_ok=True)
     exp_dir = f"experiments/{tag}"
@@ -38,35 +32,31 @@ if __name__ == "__main__":
 
     if ae_model == "cnn":
         print(f"Training with CNN autoencoder")
-        from models.ae.ae_cnn import ae_cnn_layer
+        from models.ae.ae_cnn import svhn_ae
 
-        input_shape = train_set.images_shape
-        regularization = config["ae_cnn"].getfloat("regularization")
-        filter_size = (config["ae_cnn"].getint("filter_size"), config["ae_cnn"].getint("filter_size"))
-        autoencoder, encoder = ae_cnn_layer(input_shape, filter_size=filter_size,
-                                            filter_number=config["ae_cnn"].getint("filter_number"),
-                                            b_filter_number=config["ae_cnn"].getint("bottleneck_filter_number"),
-                                            convs=config["ae_cnn"].getint("hidden_layers"), reg=regularization)
-        gen = train_set.generator(batch_size=batch_size, ae=True, flatten=False, noise=noise_ratio)
-        dev_gen = dev_set.generator(batch_size=batch_size, ae=True, flatten=False, noise=noise_ratio)
+        autoencoder, encoder = svhn_ae(filter_size=config["ae_cnn"].getint("filter_size"),
+                                       filter_number=config["ae_cnn"].getint("filter_number"),
+                                       b_filter_number=config["ae_cnn"].getint("bottleneck_filter_number"),
+                                       convs=config["ae_cnn"].getint("hidden_layers"),
+                                       reg=config["ae_cnn"].getfloat("regularization"),
+                                       color_mode=color_mode, batch_norm=config["ae_cnn"].getboolean("batch_norm"),
+                                       droprate=config["ae_cnn"].getfloat("droprate"))
+
     else:
         print(f"Training with MLP autoencoder")
         from models.ae.ae_simple import autoencoder_model
 
-        input_shape = np.prod(train_set.images_shape)
         regularization = config["ae_mlp"].getfloat("regularization")
-        autoencoder, encoder = autoencoder_model(input_shape,
+        autoencoder, encoder = autoencoder_model(color_mode=color_mode,
                                                  bottleneck_width=config["ae_mlp"].getint("bottleneck_width"),
                                                  expand_ratio=config["ae_mlp"].getfloat("expand_ratio"),
                                                  hidden_layers=config["ae_mlp"].getint("hidden_layers"),
                                                  reg=regularization)
-        gen = train_set.generator(batch_size=batch_size, ae=True, noise=noise_ratio)
-        dev_gen = dev_set.generator(batch_size=batch_size, ae=True, noise=noise_ratio)
-    print(f"input_shape is {input_shape}")
+
     adam = optimizers.adam(lr=config["optimizer"].getfloat("lr"), beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0,
                            amsgrad=False)
 
-    autoencoder.compile(optimizer=adam, loss='mse')
+    autoencoder.compile(optimizer=adam, loss='mse', metrics=[metrics.mape])
     with open(os.path.join(exp_dir, f"autoencoder.json"), "w+") as f:
         f.write(autoencoder.to_json())
     with open(os.path.join(exp_dir, f"encoder.json"), "w+") as f:
@@ -91,13 +81,13 @@ if __name__ == "__main__":
         print("Early Stop disabled")
     callbacks.append(
         TensorBoard(log_dir=log_dir, histogram_freq=0,
-                    batch_size=32,
+                    batch_size=batch_size,
                     write_graph=True,
                     write_grads=True, write_images=True, embeddings_freq=0, embeddings_layer_names=None,
                     embeddings_metadata=None, embeddings_data=None, update_freq='epoch'))
     autoencoder.summary()
-    autoencoder.fit_generator(gen, validation_data=dev_gen, epochs=config["general"].getint("epoch"), shuffle=True,
-                              callbacks=callbacks, verbose=config["training"].getint("verbosity"), workers=4,
-                              use_multiprocessing=True)
+    autoencoder.fit_generator(training_gen, validation_data=validation_gen, epochs=config["general"].getint("epoch"),
+                              shuffle=True, callbacks=callbacks, verbose=config["training"].getint("verbosity"),
+                              workers=4, use_multiprocessing=True)
     autoencoder.save_weights(os.path.join(exp_dir, f"autoencoder_final.h5"))
     plot_ae(config, tag=tag)

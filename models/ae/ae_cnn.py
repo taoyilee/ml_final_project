@@ -1,133 +1,61 @@
-from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D
-from keras.models import Model
+from keras.layers import Conv2D, MaxPooling2D, BatchNormalization, Dropout, GlobalAveragePooling2D
+from keras.layers import Reshape, UpSampling2D
+from keras.models import Model, Sequential
 from keras.regularizers import l1
 
 
-def ae_cnn_layer(input_shape=(32, 32, 1), filter_size=(3, 3), filter_number=16, b_filter_number=4, convs=4,
-                 reg=None):
-    print(f"CNN regularization is {reg}")
-    print(f"CNN input_shape is {input_shape}")
-    input_img = Input(shape=input_shape, name="input")
-    pooling_size = (2, 2)
-    x = input_img
-    for i in range(convs - 1):
-        kwargs = {'padding': 'same'}
-        if i == 0 and reg is not None:
-            kwargs.update({'activity_regularizer': l1(reg)})
-        x = Conv2D(filter_number, filter_size, name=f"encoder_{i}", activation='relu', **kwargs)(x)
-        x = MaxPooling2D(pooling_size, name=f"pooling_{i}")(x)
+def encoder(color_mode="grayscale", filter_size=3, filter_number=64, b_filter_number=2, convs=4,
+            reg=None, batch_norm=True, droprate=0.2, pooling_size=(2, 2), weights=None):
+    model = Sequential()
 
-    x = Conv2D(b_filter_number, filter_size, activation='relu', padding="same", name="bottle_neck_conv")(x)
-    x = MaxPooling2D(pooling_size, name="bottle_neck")(x)
-    bottleneck = x
-    for i in range(convs):
-        x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_{i}")(x)
-        x = UpSampling2D(pooling_size, name=f"upsamp_{i}")(x)
+    model.add(
+        Conv2D(filter_number, input_shape=(32, 32, 1 if color_mode == "grayscale" else 3), kernel_size=5,
+               activation='relu', padding='same', activity_regularizer=l1(reg if reg is not None else 0), name="conv0"))
+    model.add(BatchNormalization(name="bn0")) if batch_norm else None
+    model.add(MaxPooling2D(pooling_size, name=f"pooling0"))
+    for i in range(1, convs):
+        model.add(Conv2D(filter_number, kernel_size=filter_size, activation='relu', padding='same',
+                         activity_regularizer=l1(reg if reg is not None else 0), name=f"conv{i}"))
+        model.add(BatchNormalization(name=f"bn{i}")) if batch_norm else None
+        model.add(MaxPooling2D(pooling_size, name=f"pooling{i}"))
+        model.add(Dropout(droprate))
 
-    x = Conv2D(input_shape[2], filter_size, activation='sigmoid', padding='same', name="output")(x)
-    encoder = Model(input_img, bottleneck)
-    return Model(input_img, x), encoder
+    model.add(Conv2D(b_filter_number, filter_size, activation='sigmoid', padding="same", name="bottleneck_conv"))
+    model.add(BatchNormalization(name="bottleneck_bn")) if batch_norm else None
+    model.add(GlobalAveragePooling2D(name="bottleneck"))
+    if weights is not None:
+        model.load_weights(weights, skip_mismatch=True, by_name=True)
+    return model
 
 
-def ae_cnn_3_layer(input_shape=(32, 32, 1), filter_size=(3, 3), filter_number=16, reg=None):
-    print(f"CNN regularization is {reg}")
-    print(f"CNN input_shape is {input_shape}")
-    input_img = Input(shape=input_shape, name="input")
+def decoder(input_shape=2, color_mode="rgb", filter_size=3, filter_number=32, convs=6,
+            reg=None, batch_norm=True, droprate=0.2, weights=None):
+    model = Sequential()
+    model.add(Reshape((1, 1, input_shape), input_shape=(input_shape,), name="reshape"))
+    for i in range(1, convs):
+        model.add(UpSampling2D(2))
+        model.add(Conv2D(filter_number, kernel_size=filter_size, activation='relu',
+                         activity_regularizer=l1(reg if reg is not None else 0), padding='same', name=f"conv{i}"))
+        model.add(BatchNormalization(name=f"bn{i}")) if batch_norm else None
+        model.add(Dropout(droprate))
 
-    x = Conv2D(16, filter_size, activation='relu', padding='same', name=f"encoder_1")(input_img)
-    x = MaxPooling2D((2, 2), name=f"pooling_1")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"encoder_2")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_2")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"encoder_3")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_3")(x)
+    model.add(Conv2D(3 if color_mode == "rgb" else 1, kernel_size=filter_size, activation='sigmoid',
+                     activity_regularizer=l1(reg if reg is not None else 0), padding='same', name=f"conv_out"))
+    model.add(BatchNormalization(name=f"bn_out")) if batch_norm else None
+    model.add(Dropout(droprate))
 
-    bottleneck = x
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"decoder_1")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_1")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"decoder_2")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_2")(x)
-    x = Conv2D(16, filter_size, activation='relu', padding='same', name=f"decoder_3")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_3")(x)
-    x = Conv2D(input_shape[2], filter_size, activation='sigmoid', padding='same', name=f"output")(x)
-
-    encoder = Model(input_img, bottleneck)
-    return Model(input_img, x), encoder
+    if weights is not None:
+        model.load_weights(weights, skip_mismatch=True, by_name=True)
+    return model
 
 
-def ae_cnn_4_layer(input_shape=(32, 32, 1), filter_size=(3, 3), filter_number=16, reg=None):
-    print(f"CNN regularization is {reg}")
-    print(f"CNN input_shape is {input_shape}")
-    input_img = Input(shape=input_shape, name="input")
+def svhn_ae(color_mode="grayscale", filter_size=3, filter_number=64, b_filter_number=4, convs=4,
+            reg=None, batch_norm=True, droprate=0.2):
+    ae_encoder = encoder(color_mode=color_mode, filter_size=filter_size, filter_number=filter_number,
+                         b_filter_number=b_filter_number,
+                         convs=convs, reg=reg, batch_norm=batch_norm, droprate=droprate)
 
-    x = Conv2D(16, filter_size, activation='relu', padding='same', name=f"encoder_1", activity_regularizer=l1(1e-7))(
-        input_img)
-    x = MaxPooling2D((2, 2), name=f"pooling_1")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"encoder_2")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_2")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"encoder_3")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_3")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"encoder_4")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_4")(x)
-
-    bottleneck = x
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"decoder_1")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_1")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"decoder_2")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_2")(x)
-    x = Conv2D(8, filter_size, activation='relu', padding='same', name=f"decoder_3")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_3")(x)
-    x = Conv2D(16, filter_size, activation='relu', padding='same', name=f"decoder_4")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_4")(x)
-    x = Conv2D(input_shape[2], filter_size, activation='sigmoid', padding='same', name=f"output")(x)
-
-    encoder = Model(input_img, bottleneck)
-    return Model(input_img, x), encoder
-
-
-def ae_cnn_5_layer(input_shape=(32, 32, 1), filter_size=(3, 3), filter_number=16, reg=None):
-    print(f"CNN regularization is {reg}")
-    print(f"CNN input_shape is {input_shape}")
-    input_img = Input(shape=input_shape, name="input")
-
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_1")(input_img)
-    x = MaxPooling2D((2, 2), name=f"pooling_1")(x)
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_2")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_2")(x)
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_3")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_3")(x)
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_4")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_4")(x)
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_5")(x)
-    x = MaxPooling2D((2, 2), name=f"pooling_5")(x)
-
-    bottleneck = x
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_1")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_1")(x)
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_2")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_2")(x)
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_3")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_3")(x)
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_4")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_4")(x)
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_5")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_5")(x)
-    x = Conv2D(input_shape[2], filter_size, activation='sigmoid', padding='same', name=f"output")(x)
-
-    encoder = Model(input_img, bottleneck)
-    return Model(input_img, x), encoder
-
-
-def ae_cnn_1_layer(input_shape=(32, 32, 1), filter_size=(5, 5), filter_number=16, reg=None):
-    print(f"CNN regularization is {reg}")
-    print(f"CNN input_shape is {input_shape}")
-    input_img = Input(shape=input_shape, name="input")
-
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"encoder_1")(input_img)
-    x = MaxPooling2D((2, 2), name=f"pooling_1")(x)
-    bottleneck = x
-    x = Conv2D(filter_number, filter_size, activation='relu', padding='same', name=f"decoder_1")(x)
-    x = UpSampling2D((2, 2), name=f"upsamp_1")(x)
-    x = Conv2D(input_shape[2], filter_size, activation='sigmoid', padding='same', name=f"output")(x)
-
-    encoder = Model(input_img, bottleneck)
-    return Model(input_img, x), encoder
+    ae_decoder = decoder(input_shape=ae_encoder.output_shape[1], color_mode=color_mode, filter_size=filter_size,
+                         filter_number=filter_number, reg=reg, convs=6, batch_norm=batch_norm, droprate=droprate)
+    autoencoder = Model(inputs=ae_encoder.input, outputs=ae_decoder(ae_encoder.output))
+    return autoencoder, ae_encoder

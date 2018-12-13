@@ -34,7 +34,7 @@ def prepare_callbacks(early_stop=True, exp_dir="experiments", log_dir="logs", pa
     return callbacks
 
 
-def prepare_dataset(trn_npy, dev_npy, noise_ratio=0.07, color_mode="rgb", batch_size=32):
+def prepare_dataset(trn_npy, dev_npy, noise_ratio=0.07, ae=False, color_mode="rgb", batch_size=32):
     print("*** PREPARING DATASET ***")
     train_set = SVHNDataset.from_npy(trn_npy)
     dev_set = SVHNDataset.from_npy(dev_npy)
@@ -49,8 +49,8 @@ def prepare_dataset(trn_npy, dev_npy, noise_ratio=0.07, color_mode="rgb", batch_
 
     input_shape = train_set.images_shape
     print(f"input_shape is {input_shape}")
-    training_gen = train_set.generator(batch_size=batch_size, ae=False, flatten=False, noise=noise_ratio)
-    validation_gen = dev_set.generator(batch_size=batch_size, ae=False, flatten=False, noise=noise_ratio)
+    training_gen = train_set.generator(batch_size=batch_size, ae=ae, flatten=False, noise=noise_ratio)
+    validation_gen = dev_set.generator(batch_size=batch_size, ae=ae, flatten=False, noise=noise_ratio)
     return training_gen, validation_gen
 
 

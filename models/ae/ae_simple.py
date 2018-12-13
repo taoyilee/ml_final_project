@@ -4,8 +4,9 @@ from keras.regularizers import l1
 import numpy as np
 
 
-def autoencoder_model(input_shape=32 * 32, bottleneck_width=32, expand_ratio=2, hidden_layers=5, reg=None):
+def autoencoder_model(color_mode="rgb", bottleneck_width=32, expand_ratio=2, hidden_layers=5, reg=None):
     print(f"Regularization coefficient is {reg}")
+    input_shape = 32 * 32
     input_img = Input(shape=(input_shape,), name="input")
     layers = np.logspace(np.log2(input_shape * expand_ratio), np.log2(bottleneck_width), hidden_layers + 1, base=2)
     layers = [int(l) for l in layers[:-1]]
