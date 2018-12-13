@@ -16,4 +16,4 @@ if __name__ == "__main__":
     plotter.save_mosaic(train_set_gray, 10, 10)
     dataset_to_npy(config["general"].get("train_mat"))
     dataset_to_npy(config["general"].get("test_mat"))
-    dataset_to_npy(config["general"].get("extra_mat"))
+    dataset_to_npy(config["general"].get("extra_mat"), n=80000)

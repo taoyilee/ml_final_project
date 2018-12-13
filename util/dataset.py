@@ -87,12 +87,18 @@ def dataset_to_batch(config):
         np.save(f"dataset_split/arrays/dev/batch/512/gray/{bn}", batch)
 
 
-def dataset_to_npy(mat_file):
+def dataset_to_npy(mat_file, n=None):
     dataset = SVHNDataset.from_mat(mat_file)
     print(f"{mat_file} set has {len(dataset)} samples")
-
+    images = dataset.images
+    labels = dataset.labels
     batch = np.zeros((len(dataset), 32, 32, 4), dtype=np.uint8)  # Augment the 3rd dimension of dataset
-    batch[:, 0, 0, 3] = dataset.labels.squeeze()  # and store label in the 0, 0 element of that axis
-    batch[:, :, :, 0:3] = dataset.images
+    if n is not None:
+        images = dataset.images[:n]
+        labels = dataset.labels[:n]
+        batch = np.zeros((n, 32, 32, 4), dtype=np.uint8)  # Augment the 3rd dimension of dataset
+    batch[:, 0, 0, 3] = labels.squeeze()  # and store label in the 0, 0 element of that axis
+    batch[:, :, :, 0:3] = images
+    print(f"Batch has shape {batch.shape}")
     print(f"{np.max(batch)}/{np.min(batch)}/{np.mean(batch)}/{np.std(batch)}")
     np.save(f"dataset_split/arrays/{split_path(mat_file)[0]}", batch)
