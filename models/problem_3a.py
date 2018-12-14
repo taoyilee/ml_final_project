@@ -1,6 +1,6 @@
 import numpy as np
 import pickle
-from homework4.problem_3 import sample_train_knn
+from models.problem_3 import sample_train_knn
 import pandas as pd
 import os
 

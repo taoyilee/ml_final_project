@@ -3,9 +3,9 @@ from keras.layers import Dense, Activation
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 import numpy as np
-from homework4.common import sample_and_split
+from models.common import sample_and_split
 from keras.callbacks import TensorBoard, ReduceLROnPlateau, EarlyStopping, CSVLogger
-from homework4.auc_callback import auc_callback
+from models.auc_callback import auc_callback
 from keras import regularizers
 import random
 import string

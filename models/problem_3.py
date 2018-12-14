@@ -4,7 +4,7 @@ from sklearn.metrics import roc_auc_score
 from multiprocessing import Pool
 import matplotlib.pyplot as plt
 import pickle
-from homework4.common import sample_and_split
+from models.common import sample_and_split
 
 
 class WeightKNNExp(object):

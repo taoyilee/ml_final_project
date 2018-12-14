@@ -1,4 +1,4 @@
-from homework4.problem_4 import plot_dt, plot_dt_mat, plot_dt_mLeaf
+from models.problem_4 import plot_dt, plot_dt_mat, plot_dt_mLeaf
 import numpy as np
 
 if __name__ == "__main__":
